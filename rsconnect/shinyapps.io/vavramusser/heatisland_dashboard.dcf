@@ -1,0 +1,13 @@
+name: heatisland_dashboard
+title: heatisland_dashboard
+username: vavramusser
+account: vavramusser
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 16193669
+bundleId: 11248616
+url: https://vavramusser.shinyapps.io/heatisland_dashboard/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: .gitattributes|.RData|data_generation.R|data_generation_v2.R|README.md|screenshot1.png|screenshot2.png

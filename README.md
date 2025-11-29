@@ -4,7 +4,7 @@
 
 *NOTE: This dashboard contains <u>SIMULATED DATA</u> and should not be used for analysis.  This application is intended for demonstration purposes only.*
 
-[🔗 View Live Dashboard](https://YOURUSERNAME.shinyapps.io/heat_island_dashboard/)
+[🔗 View Live Dashboard](https://vavramusser.shinyapps.io/heatisland_dashboard)
 
 ![Dashboard Preview](screenshot2.png)
 
