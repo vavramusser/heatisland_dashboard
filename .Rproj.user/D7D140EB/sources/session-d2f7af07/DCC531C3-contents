@@ -1,0 +1,207 @@
+# Urban Heat Island Data Generation
+# Creates realistic simulated temperature data for Los Angeles
+# Kate Vavra-Musser
+
+library(dplyr)
+library(purrr)
+library(sf)
+library(tidyr)
+
+# Set seed for reproducibility
+set.seed(123)
+
+# ==============================================================================
+# 1. CREATE TEMPERATURE GRID FOR LOS ANGELES
+# ==============================================================================
+
+# LA bounding box (approximate)
+la_bounds <- list(
+  lat_min = 33.95,
+  lat_max = 34.35,
+  lon_min = -118.50,
+  lon_max = -118.15
+)
+
+# Create a grid of points across LA
+# More points = more detailed but slower
+grid_resolution <- 0.01  # About 1km spacing
+
+lat_seq <- seq(la_bounds$lat_min, la_bounds$lat_max, by = grid_resolution)
+lon_seq <- seq(la_bounds$lon_min, la_bounds$lon_max, by = grid_resolution)
+
+# Create all combinations
+temp_grid <- expand.grid(
+  latitude = lat_seq,
+  longitude = lon_seq
+)
+
+# ==============================================================================
+# 2. SIMULATE REALISTIC TEMPERATURE PATTERNS
+# ==============================================================================
+
+# Base temperature for LA in summer
+base_temp <- 85
+
+# Create heat island effect based on distance from city center
+# Downtown LA is around 34.05, -118.25
+downtown_lat <- 34.05
+downtown_lon <- -118.25
+
+temp_grid <- temp_grid %>%
+  mutate(
+    # Calculate distance from downtown (in degrees, rough approximation)
+    dist_from_downtown = sqrt((latitude - downtown_lat)^2 + 
+                                (longitude - downtown_lon)^2),
+    
+    # Heat island effect: hotter near downtown, cooler at edges
+    # Urban core is 5-10 degrees hotter than suburbs
+    urban_heat_effect = 8 * exp(-dist_from_downtown * 15),
+    
+    # Add some random variation to make it realistic
+    random_variation = rnorm(n(), mean = 0, sd = 2),
+    
+    # Additional hot spots (industrial areas, commercial zones)
+    # These are rough locations of known hot areas in LA
+    hotspot_1 = ifelse(
+      latitude > 34.0 & latitude < 34.1 & longitude > -118.3 & longitude < -118.2,
+      3, 0
+    ),
+    hotspot_2 = ifelse(
+      latitude > 34.15 & latitude < 34.2 & longitude > -118.4 & longitude < -118.35,
+      2, 0
+    )
+  )
+
+# ==============================================================================
+# 3. CREATE TEMPERATURE BY TIME OF DAY
+# ==============================================================================
+
+# We'll create three time periods
+times <- c("Morning (7 AM)", "Afternoon (2 PM)", "Evening (7 PM)")
+
+# Generate temperature for each time period
+temperature_data <- map_dfr(times, function(time_period) {
+  temp_grid %>%
+    mutate(
+      time_of_day = time_period,
+      
+      # Adjust base temperature by time of day
+      time_adjustment = case_when(
+        time_period == "Morning (7 AM)" ~ -10,
+        time_period == "Afternoon (2 PM)" ~ 5,
+        time_period == "Evening (7 PM)" ~ -5
+      ),
+      
+      # Calculate final temperature
+      temperature_f = base_temp + 
+        time_adjustment + 
+        urban_heat_effect + 
+        hotspot_1 + 
+        hotspot_2 + 
+        random_variation,
+      
+      # Round to 1 decimal place
+      temperature_f = round(temperature_f, 1)
+    ) %>%
+    select(latitude, longitude, temperature_f, time_of_day)
+})
+
+# ==============================================================================
+# 4. CREATE DEMOGRAPHIC DATA (Census Tract Level)
+# ==============================================================================
+
+# We'll create polygons representing census tracts
+# In reality, you'd load this from IPUMS or Census API
+# But for demo purposes, we'll create a simplified grid
+
+# Create larger grid for census tracts (they're bigger than temperature points)
+tract_resolution <- 0.05  # About 5km
+
+tract_lat_seq <- seq(la_bounds$lat_min, la_bounds$lat_max, by = tract_resolution)
+tract_lon_seq <- seq(la_bounds$lon_min, la_bounds$lon_max, by = tract_resolution)
+
+# Create tract centroids
+tract_centroids <- expand.grid(
+  latitude = tract_lat_seq,
+  longitude = tract_lon_seq
+) %>%
+  mutate(
+    tract_id = row_number(),
+    
+    # Simulate demographics based on location
+    # Generally: closer to downtown = higher density, more diverse, lower income
+    dist_from_downtown = sqrt((latitude - downtown_lat)^2 + 
+                                (longitude - downtown_lon)^2),
+    
+    # Median household income (lower near downtown, higher in suburbs)
+    median_income = round(50000 + (dist_from_downtown * 80000) + rnorm(n(), 0, 10000)),
+    median_income = pmax(median_income, 25000),  # Floor
+    median_income = pmin(median_income, 150000), # Ceiling
+    
+    # Percent people of color (higher near downtown)
+    pct_poc = pmin(0.95, 0.75 - (dist_from_downtown * 1.5) + rnorm(n(), 0, 0.1)),
+    pct_poc = pmax(pct_poc, 0.2),
+    pct_poc = round(pct_poc, 2),
+    
+    # Percent over 65 (varies)
+    pct_over_65 = pmin(0.35, 0.15 + rnorm(n(), 0, 0.05)),
+    pct_over_65 = pmax(pct_over_65, 0.05),
+    pct_over_65 = round(pct_over_65, 2),
+    
+    # Percent under poverty line
+    pct_poverty = pmin(0.45, 0.35 - (dist_from_downtown * 0.8) + rnorm(n(), 0, 0.08)),
+    pct_poverty = pmax(pct_poverty, 0.05),
+    pct_poverty = round(pct_poverty, 2)
+  ) %>%
+  select(tract_id, latitude, longitude, median_income, pct_poc, pct_over_65, pct_poverty)
+
+# Convert to sf object (spatial data format you know!)
+# We'll create simple square polygons around each centroid
+demographic_data <- tract_centroids %>%
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>%
+  st_buffer(dist = 0.025) %>%
+  st_transform(4326)  # Ensure it's in the right CRS
+
+# Verify the polygons look right
+print("Demographic data bounding box:")
+print(st_bbox(demographic_data))
+
+# ==============================================================================
+# 5. SAVE DATA
+# ==============================================================================
+
+# Save as RDS files (native R format, preserves structure)
+saveRDS(temperature_data, "temperature_data.rds")
+saveRDS(demographic_data, "demographic_data.rds")
+
+# ==============================================================================
+# 6. CREATE SUMMARY STATISTICS
+# ==============================================================================
+
+cat("\n=== DATA GENERATION COMPLETE ===\n\n")
+
+cat("Temperature Data:\n")
+cat("  Total observations:", nrow(temperature_data), "\n")
+cat("  Points per time period:", nrow(temperature_data) / 3, "\n")
+cat("  Temperature range:", 
+    round(min(temperature_data$temperature_f), 1), "°F to",
+    round(max(temperature_data$temperature_f), 1), "°F\n")
+cat("  Time periods:", paste(unique(temperature_data$time_of_day), collapse = ", "), "\n\n")
+
+cat("Demographic Data:\n")
+cat("  Number of census tracts:", nrow(demographic_data), "\n")
+cat("  Median income range: $", 
+    format(min(demographic_data$median_income), big.mark = ","), " to $",
+    format(max(demographic_data$median_income), big.mark = ","), "\n", sep = "")
+cat("  Percent POC range:", 
+    round(min(demographic_data$pct_poc) * 100, 1), "% to",
+    round(max(demographic_data$pct_poc) * 100, 1), "%\n")
+cat("  Percent poverty range:", 
+    round(min(demographic_data$pct_poverty) * 100, 1), "% to",
+    round(max(demographic_data$pct_poverty) * 100, 1), "%\n\n")
+
+cat("Files saved:\n")
+cat("  - temperature_data.rds\n")
+cat("  - demographic_data.rds\n\n")
+
+cat("Ready to use in your Shiny app!\n")

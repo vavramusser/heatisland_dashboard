@@ -1,0 +1,7 @@
+# ignore data generation scripts
+data_generation.R
+data_generation_v2.R
+
+# irgnore R metadata
+.RData
+.Rhistory
