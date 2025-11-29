@@ -2,6 +2,8 @@
 
 **An interactive geospatial analysis tool exploring the relationship between urban heat patterns and vulnerable populations in Los Angeles.**
 
+*NOTE: This dashboard contains <u>SIMULATED DATA</u> and should not be used for analysis.  This application is intended for demonstration purposes only.*
+
 [🔗 View Live Dashboard](https://YOURUSERNAME.shinyapps.io/heat_island_dashboard/)
 
 ![Dashboard Preview](screenshot2.png)
@@ -44,6 +46,9 @@ Heat islands often disproportionately affect low-income communities, communities
 **Demographic Data:**
 - Census tract-level socioeconomic indicators
 
+**Basemap:**
+- Basemap tiles from CartoDB
+
 ---
 
 ## About
@@ -57,22 +62,3 @@ Postdoctoral Researcher in Geospatial Data Science
 - LinkedIn: [linkedin.com/in/vavramusser]()
 - GitHub: [https://github.com/vavramusser]()
 - Personal Website: [https://vavramusser.github.io/]()
-
----
-
-## Acknowledgments
-
-- Census tract boundaries provided by U.S. Census Bureau via the tigris R package
-- Basemap tiles from CartoDB
-- Temperature simulation based on established urban heat island research
-- Built with open-source R packages maintained by their respective communities
-
----
-
-## License
-
-This project is created for demonstration and educational purposes. Code may be used and adapted with attribution. Simulated data is for demonstration only and should not be used for actual research or policy decisions.
-
----
-
-**Built with R, Shiny, and a commitment to environmental justice.** 🌍
